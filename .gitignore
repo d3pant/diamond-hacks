@@ -1,0 +1,28 @@
+cat > .gitignore << 'EOF'
+# Python
+backend/venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+backend/.env
+
+# Google credentials
+backend/data/credentials.json
+backend/data/token.json
+
+# Patient data
+backend/data/patient_state.json
+backend/data/patient_profile.json
+backend/data/medicines_result.json
+backend/data/surgery_result.json
+backend/data/travel_result.json
+backend/data/cms/hospital_lookup_cache.json
+
+# Uploads
+backend/uploads/
+
+# OS
+.DS_Store
+EOF
