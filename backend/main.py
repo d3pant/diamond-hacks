@@ -1,12 +1,52 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Optional
+from contextlib import asynccontextmanager
 from pathlib import Path
-import uuid
-from agents.analyser import analyse
 
-app = FastAPI(title="Diamond Medical Agent", version="0.1.0")
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from routers import analyse, approve, health, patient_detail, results, patient_profile_router, n8n_proxy, insurance_claim
+
+BACKEND_ROOT = Path(__file__).resolve().parent
+DATA_DIR = BACKEND_ROOT / "data"
+UPLOADS_DIR = BACKEND_ROOT / "uploads"
+
+SESSION_ARTIFACTS = (
+    "patient_state.json",
+    "medicines_result.json",
+    "surgery_result.json",
+    "travel_result.json",
+    "patient_profile.json",
+)
+
+
+def cleanup_session_artifacts() -> None:
+    """Remove uploads and per-session JSON outputs so the next server run starts clean."""
+    if UPLOADS_DIR.is_dir():
+        for p in UPLOADS_DIR.iterdir():
+            if p.is_file():
+                try:
+                    p.unlink()
+                except OSError:
+                    pass
+    for name in SESSION_ARTIFACTS:
+        fp = DATA_DIR / name
+        if fp.is_file():
+            try:
+                fp.unlink()
+            except OSError:
+                pass
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    cleanup_session_artifacts()
+    print("\n[startup] Cleared any leftover session files from previous run.\n", flush=True)
+    yield
+    cleanup_session_artifacts()
+    print("\n[shutdown] Removed session uploads and patient_state / agent result JSON files.\n", flush=True)
+
+
+app = FastAPI(title="Diamond Medical Agent", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -16,68 +56,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-UPLOADS_DIR = Path(__file__).parent / "uploads"
-UPLOADS_DIR.mkdir(exist_ok=True)
-
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-
-@app.post("/analyse")
-async def analyse_endpoint(
-    files: Optional[List[UploadFile]] = File(default=None),
-    text: Optional[str] = Form(default=None),
-):
-    """
-    Input:  1-5 PDF files (multipart) + optional typed text
-    Output: structured medical JSON
-
-    Returns 200 if complete, 206 if missing fields.
-    Frontend checks status field to decide next step.
-    """
-    if not files and not text:
-        raise HTTPException(
-            status_code=400,
-            detail="Send at least one PDF or text input."
-        )
-
-    if files and len(files) > 5:
-        raise HTTPException(
-            status_code=400,
-            detail="Maximum 5 PDFs allowed."
-        )
-
-    try:
-        pdf_bytes_list = []
-        saved_files = []
-
-        if files:
-            for f in files:
-                if f.filename:
-                    content = await f.read()
-
-                    # Save to local uploads folder
-                    upload_id = str(uuid.uuid4())[:8]
-                    save_path = UPLOADS_DIR / f"{upload_id}_{f.filename}"
-                    with open(save_path, "wb") as out:
-                        out.write(content)
-                    saved_files.append(str(save_path))
-
-                    pdf_bytes_list.append(content)
-
-        result = analyse(pdf_bytes_list, text)
-
-        # Attach saved file paths to result for reference
-        result["uploaded_files"] = saved_files
-
-        # 206 = incomplete, frontend shows re-entry form
-        # 200 = complete, frontend triggers downstream agents
-        status_code = 200 if result["status"] == "complete" else 206
-        return JSONResponse(content=result, status_code=status_code)
-
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Analyser failed: {str(e)}")
+app.include_router(health.router, prefix="/api")
+app.include_router(analyse.router, prefix="/api")
+app.include_router(approve.router, prefix="/api")
+app.include_router(results.router, prefix="/api")
+app.include_router(patient_detail.router, prefix="/api")
+app.include_router(patient_profile_router.router, prefix="/api")
+app.include_router(n8n_proxy.router, prefix="/api")
+app.include_router(insurance_claim.router, prefix="/api")

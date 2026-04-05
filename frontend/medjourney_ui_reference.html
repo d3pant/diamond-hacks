@@ -1,0 +1,669 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #080c14;
+    --card: #0f1624;
+    --card2: #131d2e;
+    --border: rgba(255,255,255,0.07);
+    --accent: #3B82F6;
+    --teal: #14b8a6;
+    --muted: #4a5878;
+    --text: #e8edf5;
+    --text2: #7a8aaa;
+  }
+
+  body {
+    background: var(--bg);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    padding: 24px;
+  }
+
+  h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 0.5px solid var(--border);
+  }
+
+  .section { margin-bottom: 40px; }
+
+  /* SCREEN WRAPPER */
+  .screen {
+    background: var(--bg);
+    border-radius: 16px;
+    border: 0.5px solid var(--border);
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  .screen-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 10px 16px;
+    border-bottom: 0.5px solid var(--border);
+    background: var(--card);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .dot-r { background: #ef4444; }
+  .dot-y { background: #f59e0b; }
+  .dot-g { background: #22c55e; }
+
+  .screen-body { padding: 24px; }
+
+  /* CARDS */
+  .card {
+    background: var(--card);
+    border: 0.5px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 20px;
+  }
+
+  .card-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-weight: 400;
+  }
+
+  /* GRID */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .grid-auto { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .col-span-2 { grid-column: span 2; }
+  .col-span-3 { grid-column: span 3; }
+
+  /* PATIENT ROW */
+  .patient-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: var(--card);
+    border: 0.5px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .patient-row:hover { background: var(--card2); }
+
+  .avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; color: white;
+    flex-shrink: 0;
+  }
+
+  /* BADGE */
+  .badge {
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+  .badge-blue { background: rgba(59,130,246,0.15); color: #93bbfc; }
+  .badge-teal { background: rgba(20,184,166,0.15); color: #5eead4; }
+  .badge-red { background: rgba(239,68,68,0.12); color: #fca5a5; }
+  .badge-muted { background: rgba(255,255,255,0.05); color: var(--muted); }
+
+  /* UPLOAD ZONE */
+  .upload-zone {
+    border: 1.5px dashed rgba(59,130,246,0.3);
+    border-radius: 12px;
+    padding: 28px;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  /* TICKER */
+  .ticker-step {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 0;
+  }
+  .tick-icon {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+  .tick-done { background: var(--teal); color: white; }
+  .tick-active { background: var(--accent); }
+  .tick-pending { background: var(--card2); border: 0.5px solid var(--border); }
+
+  /* TIMELINE */
+  .timeline-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    flex: 1;
+  }
+  .timeline-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+  .timeline-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+    margin-top: 8px;
+  }
+
+  /* STAT CARD */
+  .stat-big {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px;
+    font-weight: 600;
+    color: white;
+    margin-top: 4px;
+  }
+
+  /* DIVIDER */
+  .divider { height: 0.5px; background: var(--border); margin: 12px 0; }
+
+  /* BUTTON */
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .btn-danger {
+    background: rgba(239,68,68,0.15);
+    color: #fca5a5;
+    border: 0.5px solid rgba(239,68,68,0.3);
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  /* N8N CARD */
+  .n8n-card {
+    background: var(--card2);
+    border: 0.5px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  /* FLAG */
+  .flag-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    background: rgba(239,68,68,0.05);
+    border: 0.5px solid rgba(239,68,68,0.15);
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+
+  /* PAGE TITLE */
+  .page-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: white;
+    margin-bottom: 4px;
+  }
+  .page-sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+
+  /* INPUT */
+  .fake-input {
+    background: var(--card2);
+    border: 0.5px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 8px;
+    width: 100%;
+  }
+
+  /* COST TABLE ROW */
+  .cost-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 0.5px solid var(--border);
+  }
+
+  /* PDF MOCK */
+  .pdf-mock {
+    background: var(--card2);
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    height: 160px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .pdf-icon {
+    width: 40px; height: 48px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+    position: relative;
+  }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: white;
+    margin-bottom: 12px;
+  }
+
+  .accent-label {
+    font-size: 10px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== DOCTOR PORTAL ===================== -->
+<div class="section">
+  <h2>Doctor Portal</h2>
+
+  <!-- Screen 1: Patient List -->
+  <div class="screen">
+    <div class="screen-label">
+      <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+      Screen 1 — Patient List &nbsp;·&nbsp; localhost:5173/doctor
+    </div>
+    <div class="screen-body">
+      <div class="page-title">Patient List</div>
+      <div class="page-sub">Select a patient to upload diagnosis and reports</div>
+      <div class="patient-row">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="avatar">MG</div>
+          <div>
+            <div style="font-size:14px;font-weight:500;color:white">Maria Gonzalez</div>
+            <div style="font-size:12px;color:var(--muted)">Stage 2 Breast Cancer</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:12px;color:var(--muted)">Age 67</span>
+          <span class="badge badge-blue">Active</span>
+          <span style="color:var(--muted);font-size:16px">›</span>
+        </div>
+      </div>
+      <div class="patient-row">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="avatar" style="background:#8b5cf6">JP</div>
+          <div>
+            <div style="font-size:14px;font-weight:500;color:white">James Patel</div>
+            <div style="font-size:12px;color:var(--muted)">Type 2 Diabetes</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:12px;color:var(--muted)">Age 54</span>
+          <span class="badge badge-teal">Active</span>
+          <span style="color:var(--muted);font-size:16px">›</span>
+        </div>
+      </div>
+      <div class="patient-row">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="avatar" style="background:var(--teal)">AN</div>
+          <div>
+            <div style="font-size:14px;font-weight:500;color:white">Aisha Noor</div>
+            <div style="font-size:12px;color:var(--muted)">Hypertension</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:12px;color:var(--muted)">Age 43</span>
+          <span class="badge badge-muted">Pending</span>
+          <span style="color:var(--muted);font-size:16px">›</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 2: Upload Form -->
+  <div class="screen">
+    <div class="screen-label">
+      <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+      Screen 2 — Upload Form
+    </div>
+    <div class="screen-body">
+      <div style="font-size:11px;color:var(--accent);margin-bottom:4px;letter-spacing:0.05em">UPLOADING FOR</div>
+      <div class="page-title">Maria Gonzalez</div>
+      <div class="page-sub">Age 67 · Stage 2 Breast Cancer</div>
+      <div class="grid-2" style="margin-bottom:12px">
+        <div class="card">
+          <div class="section-title">Test Reports & Prescriptions</div>
+          <div class="upload-zone">
+            <div style="font-size:22px;margin-bottom:6px;opacity:0.4">⬆</div>
+            <div style="font-size:13px;color:var(--muted)">Drop PDFs here or click to upload</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;opacity:0.6">Multiple files supported</div>
+          </div>
+          <div style="margin-top:10px;padding:8px 12px;background:rgba(20,184,166,0.08);border:0.5px solid rgba(20,184,166,0.2);border-radius:8px;display:flex;align-items:center;gap:8px">
+            <span style="font-size:11px;color:var(--teal)">✓</span>
+            <span style="font-size:12px;color:var(--teal)">3 PDFs selected</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-title">Diagnosis Notes</div>
+          <div style="background:var(--card2);border:0.5px solid var(--border);border-radius:8px;padding:12px;height:120px">
+            <div style="font-size:13px;color:var(--muted)">Patient presents with stage 2 breast cancer. Recommended treatment includes...</div>
+          </div>
+        </div>
+      </div>
+      <button class="btn-primary" style="width:100%">Submit for AI Analysis →</button>
+    </div>
+  </div>
+
+  <!-- Screen 3: AI Review -->
+  <div class="screen">
+    <div class="screen-label">
+      <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+      Screen 3 — AI Review & Approve
+    </div>
+    <div class="screen-body">
+      <div style="font-size:11px;color:var(--accent);margin-bottom:4px;letter-spacing:0.05em">AI REVIEW</div>
+      <div class="page-title">Maria Gonzalez</div>
+      <div class="page-sub">Review interpretation before sending to patient</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="section-title">Uploaded Documents</div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--border)">
+            <div style="width:32px;height:32px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:white;flex-shrink:0">PDF</div>
+            <span style="font-size:13px;color:white">Lab_Report_March.pdf</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--border)">
+            <div style="width:32px;height:32px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:white;flex-shrink:0">PDF</div>
+            <span style="font-size:13px;color:white">Prescription_v2.pdf</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 0">
+            <div style="width:32px;height:32px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:white;flex-shrink:0">PDF</div>
+            <span style="font-size:13px;color:white">Scan_Results.pdf</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="card">
+            <div class="section-title">AI Summary</div>
+            <div style="font-size:13px;color:var(--text2);line-height:1.6">Patient presents with Stage 2 Breast Cancer. Recommended treatment includes chemotherapy followed by surgery. Three medications prescribed.</div>
+          </div>
+          <div class="card" style="border-color:rgba(239,68,68,0.2)">
+            <div style="font-size:13px;font-weight:500;color:#fca5a5;margin-bottom:10px">⚠ Flagged Items</div>
+            <div class="flag-item">
+              <span style="color:#fca5a5;font-size:12px">!</span>
+              <span style="font-size:12px;color:var(--text2)">Potential interaction between Drug A and Drug B</span>
+            </div>
+            <div class="flag-item">
+              <span style="color:#fca5a5;font-size:12px">!</span>
+              <span style="font-size:12px;color:var(--text2)">Missing follow-up appointment details</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn-primary" style="flex:1">Approve & Send ✓</button>
+            <button class="btn-danger" style="flex:1">Deny</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== PATIENT PORTAL ===================== -->
+<div class="section">
+  <h2>Patient Portal</h2>
+
+  <!-- Loading Ticker -->
+  <div class="screen">
+    <div class="screen-label">
+      <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+      Loading State — Blocks entire page &nbsp;·&nbsp; localhost:5173/patient
+    </div>
+    <div class="screen-body" style="display:flex;flex-direction:column;align-items:center;padding:40px 24px">
+      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:600;color:white;margin-bottom:6px;text-align:center">Preparing your journey</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:32px;text-align:center">Our agents are working. This will only take a moment.</div>
+      <div style="width:100%;max-width:380px">
+        <div class="ticker-step">
+          <div class="tick-icon tick-done">✓</div>
+          <span style="font-size:13px;color:white">Diagnosis received & interpreted</span>
+        </div>
+        <div class="ticker-step">
+          <div class="tick-icon tick-done">✓</div>
+          <span style="font-size:13px;color:white">Calculating medication costs</span>
+        </div>
+        <div class="ticker-step">
+          <div class="tick-icon tick-active">
+            <div style="width:10px;height:10px;border-radius:50%;border:2px solid white;border-top-color:transparent"></div>
+          </div>
+          <span style="font-size:13px;color:white;font-weight:500">Finding cheapest pharmacies near you</span>
+        </div>
+        <div class="ticker-step">
+          <div class="tick-icon tick-pending"></div>
+          <span style="font-size:13px;color:var(--muted)">Estimating travel & logistics costs</span>
+        </div>
+        <div class="ticker-step">
+          <div class="tick-icon tick-pending"></div>
+          <span style="font-size:13px;color:var(--muted)">Generating insurance claim document</span>
+        </div>
+        <div class="ticker-step">
+          <div class="tick-icon tick-pending"></div>
+          <span style="font-size:13px;color:var(--muted)">Notifying n8n — calendar, email, docs</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Patient Dashboard -->
+  <div class="screen">
+    <div class="screen-label">
+      <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+      Patient Dashboard — renders after all agents complete
+    </div>
+    <div class="screen-body">
+      <div class="page-title">Your Medical Journey</div>
+      <div class="page-sub">Everything prepared and ready for you</div>
+
+      <div class="grid-3" style="margin-bottom:12px">
+
+        <!-- Journey Timeline — col span 2 -->
+        <div class="card col-span-2">
+          <div class="section-title">Your Journey</div>
+          <div style="display:flex;align-items:flex-start;gap:0;margin-bottom:20px">
+            <div class="timeline-row">
+              <div class="timeline-dot" style="background:var(--teal)"></div>
+              <div style="flex:1">
+                <div style="font-size:11px;color:var(--teal)">✓</div>
+                <div style="font-size:11px;color:white;margin-top:2px">Diagnosis Received</div>
+              </div>
+            </div>
+            <div class="timeline-line"></div>
+            <div class="timeline-row">
+              <div class="timeline-dot" style="background:var(--teal)"></div>
+              <div style="flex:1">
+                <div style="font-size:11px;color:var(--teal)">✓</div>
+                <div style="font-size:11px;color:white;margin-top:2px">Cost Plan Ready</div>
+              </div>
+            </div>
+            <div class="timeline-line"></div>
+            <div class="timeline-row">
+              <div class="timeline-dot" style="background:var(--teal)"></div>
+              <div style="flex:1">
+                <div style="font-size:11px;color:var(--teal)">✓</div>
+                <div style="font-size:11px;color:white;margin-top:2px">Insurance Filed</div>
+              </div>
+            </div>
+            <div class="timeline-line"></div>
+            <div class="timeline-row">
+              <div class="timeline-dot" style="background:var(--border)"></div>
+              <div style="flex:1">
+                <div style="font-size:11px;color:var(--muted)">–</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">Appointments Scheduled</div>
+              </div>
+            </div>
+          </div>
+          <div style="background:var(--card2);border:0.5px solid var(--border);border-radius:10px;padding:14px">
+            <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Doctor's diagnosis summary</div>
+            <div style="font-size:13px;color:var(--text2);line-height:1.6">Patient presents with Stage 2 Breast Cancer. Recommended treatment plan includes chemotherapy sessions followed by surgical intervention. All medications have been prescribed with standard dosage protocols.</div>
+          </div>
+        </div>
+
+        <!-- Total Cost -->
+        <div class="card" style="background:var(--accent);border-color:transparent">
+          <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:4px">Total Estimated Cost</div>
+          <div class="stat-big">$4,280</div>
+          <div class="divider" style="background:rgba(255,255,255,0.15)"></div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:4px">Uninsured Cost</div>
+          <div style="font-size:20px;font-family:'Syne',sans-serif;font-weight:600;color:white">$1,180</div>
+        </div>
+
+        <!-- Cost Breakdown — col span 3 -->
+        <div class="card col-span-3">
+          <div class="section-title">Cost Breakdown</div>
+          <div class="grid-3">
+            <div>
+              <div class="accent-label">Medicine List</div>
+              <div class="cost-row">
+                <div>
+                  <div style="font-size:13px;color:white">Tamoxifen 20mg</div>
+                  <div style="font-size:11px;color:var(--teal)">CVS Pharmacy · 0.3mi →</div>
+                </div>
+                <div style="font-size:13px;color:white">$24/mo</div>
+              </div>
+              <div class="cost-row">
+                <div>
+                  <div style="font-size:13px;color:white">Ondansetron 8mg</div>
+                  <div style="font-size:11px;color:var(--teal)">Walgreens · 0.5mi →</div>
+                </div>
+                <div style="font-size:13px;color:white">$18/mo</div>
+              </div>
+              <div class="cost-row" style="border:none">
+                <div>
+                  <div style="font-size:13px;color:white">Dexamethasone</div>
+                  <div style="font-size:11px;color:var(--teal)">RiteAid · 0.8mi →</div>
+                </div>
+                <div style="font-size:13px;color:white">$12/mo</div>
+              </div>
+            </div>
+            <div>
+              <div class="accent-label">Travel Itinerary</div>
+              <div class="cost-row">
+                <div style="font-size:13px;color:white">Cab to UCSD Medical</div>
+                <div style="font-size:13px;color:white">$18</div>
+              </div>
+              <div class="cost-row">
+                <div style="font-size:13px;color:white">Return cab</div>
+                <div style="font-size:13px;color:white">$18</div>
+              </div>
+              <div class="cost-row" style="border:none">
+                <div style="font-size:13px;color:white">Weekly total (est.)</div>
+                <div style="font-size:13px;color:white">$36/wk</div>
+              </div>
+            </div>
+            <div>
+              <div class="accent-label">Surgery / Procedure</div>
+              <div class="cost-row">
+                <div style="font-size:13px;color:white">Chemo Session x6</div>
+                <div style="font-size:13px;color:white">$2,400</div>
+              </div>
+              <div class="cost-row">
+                <div style="font-size:13px;color:white">Surgical Procedure</div>
+                <div style="font-size:13px;color:white">$1,200</div>
+              </div>
+              <div class="cost-row" style="border:none">
+                <div style="font-size:13px;color:white">Anesthesia</div>
+                <div style="font-size:13px;color:white">$480</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Insurance -->
+        <div class="card col-span-2">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <div class="section-title" style="margin:0">Insurance Claim</div>
+            <span class="badge badge-teal">Submitted</span>
+          </div>
+          <div class="pdf-mock">
+            <div class="pdf-icon">PDF</div>
+            <div style="font-size:12px;color:var(--muted)">BlueCross_Claim_March2026.pdf</div>
+            <div style="font-size:11px;color:var(--teal)">View document →</div>
+          </div>
+        </div>
+
+        <!-- n8n Actions -->
+        <div class="card">
+          <div class="section-title">Automated Actions</div>
+          <div class="n8n-card" style="margin-bottom:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:13px;color:white">📅 Calendar</span>
+              <span class="badge badge-teal">Done</span>
+            </div>
+            <div style="font-size:11px;color:var(--muted)">Chemo — Apr 10, 9:00 AM added</div>
+          </div>
+          <div class="n8n-card" style="margin-bottom:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:13px;color:white">📧 Email</span>
+              <span class="badge badge-teal">Done</span>
+            </div>
+            <div style="font-size:11px;color:var(--muted)">Summary sent to patient</div>
+          </div>
+          <div class="n8n-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:13px;color:white">📄 Docs</span>
+              <span class="badge badge-teal">Done</span>
+            </div>
+            <div style="font-size:11px;color:var(--muted)">Treatment plan logged</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

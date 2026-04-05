@@ -13,7 +13,7 @@ import os
 import json
 import asyncio
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import googlemaps
 from google.oauth2.credentials import Credentials
@@ -91,16 +91,43 @@ def geocode(gmaps, address: str) -> dict:
     }
 
 
+def city_for_flight_search(formatted: str, raw_address: str, facility_name: str) -> str:
+    """
+    Derive a city string for flight search. Raw addresses without commas (e.g. 'La Jolla')
+    used to break destination_address.split(',')[-2].
+    """
+    text = (formatted or raw_address or "").strip()
+    parts = [p.strip() for p in text.split(",") if p.strip()]
+    if len(parts) >= 2:
+        return parts[-2]
+    if len(parts) == 1:
+        return parts[0]
+    return (facility_name or "Unknown").strip()
+
+
 # ── Route calculation ─────────────────────────────────────────────────────────
 
 def get_route(gmaps, origin: dict, destination: dict, departure_time: datetime) -> dict:
-    result = gmaps.distance_matrix(
+    """
+    Traffic / duration_in_traffic requires departure_time to be now or in the future.
+    Past appointments (common with demo data) use a plain matrix request without traffic.
+    """
+    now_utc = datetime.now(timezone.utc)
+    apt = departure_time
+    if apt.tzinfo is None:
+        apt = apt.replace(tzinfo=timezone.utc)
+    use_traffic = apt >= now_utc
+
+    kwargs = dict(
         origins=[(origin["lat"], origin["lng"])],
         destinations=[(destination["lat"], destination["lng"])],
         mode="driving",
-        departure_time=departure_time,
-        traffic_model="best_guess"
     )
+    if use_traffic:
+        kwargs["departure_time"] = departure_time
+        kwargs["traffic_model"] = "best_guess"
+
+    result = gmaps.distance_matrix(**kwargs)
 
     element = result["rows"][0]["elements"][0]
     if element["status"] != "OK":
@@ -189,31 +216,29 @@ async def search_flights(
         date_formatted = datetime.fromisoformat(date).strftime("%Y-%m-%d")
 
         task = f"""
-Use the Composio flight search tool to find one-way flights.
+Use the Composio flight search tool to find flights.
+Search for one-way flights from {origin_city} to {destination_city} on {date_formatted}.
 
-Call the tool with EXACTLY these parameters as a JSON object:
-{{
-  "departure_id": "SMO",
-  "arrival_id": "JFK",
-  "outbound_date": "{date_formatted}",
-  "trip_type": "one_way",
-  "travel_class": 1
-}}
+Input the following:
+- Origin: {origin_city}
+- Destination: {destination_city}  
+- Date: {date_formatted}
+- Trip type: one-way
+- Class: economy
 
-The value for travel_class MUST be the number 1 (integer), not the word "economy".
-The value for trip_type MUST be "one_way" with an underscore.
-
-After the search returns results, extract the 3 cheapest flight options.
-For each option return:
+Use Composio's search plugin to execute this flight search and return the results.
+Extract the 3 cheapest options from the results.
+For each return:
 - airline: string
-- departure_time: string (e.g. "2026-04-20 07:00")
-- arrival_time: string (e.g. "2026-04-20 15:29")
-- duration: string (e.g. "5h 29m")
-- price_str: string (e.g. "$179")
+- departure_time: string
+- arrival_time: string
+- duration: string
+- price_str: string (e.g. "$189")
 - url: string
 
-Stop immediately after extracting.
+Stop immediately after extracting results.
 """
+
 
         result = await client.run(
             task,
@@ -238,6 +263,7 @@ def create_calendar_events(
     cab_cost: dict,
     airport_to_venue_cost: dict,
     mode: str,
+    flight_option=None,
 ) -> list[str]:
     created = []
 
@@ -283,6 +309,43 @@ def create_calendar_events(
         r = service.events().insert(calendarId="primary", body=home_to_airport).execute()
         created.append(r["id"])
         print(f"  ✅ Calendar: home→airport cab at {timeline['cab_pickup_str']}")
+
+        # Flight event
+        if flight_option:
+            try:
+                flight_dep = datetime.fromisoformat(flight_option.departure_time)
+                flight_arr = datetime.fromisoformat(flight_option.arrival_time)
+                flight_duration_mins = int((flight_arr - flight_dep).total_seconds() / 60)
+                flight_event = make_event(
+                    title=f"✈️ Flight — {flight_option.airline}",
+                    dt_str=flight_dep.isoformat(),
+                    description=(
+                        f"Flight to {facility}\n"
+                        f"Airline: {flight_option.airline}\n"
+                        f"Departure: {flight_dep.strftime('%I:%M %p')}\n"
+                        f"Arrival: {flight_arr.strftime('%I:%M %p')}\n"
+                        f"Duration: {flight_option.duration}\n"
+                        f"Price: {flight_option.price_str}"
+                    ),
+                    duration_mins=flight_duration_mins,
+                )
+                r = service.events().insert(calendarId="primary", body=flight_event).execute()
+                created.append(r["id"])
+                print(f"  ✅ Calendar: flight {flight_dep.strftime('%I:%M %p')} → {flight_arr.strftime('%I:%M %p')}")
+            except Exception as e:
+                print(f"  ⚠️  Could not create flight event — {e}")
+        else:
+            # Fallback: block off assumed 6h flight window after cab pickup + 2h airport time
+            flight_start = datetime.fromisoformat(timeline["cab_pickup"]) + timedelta(hours=2, minutes=30)
+            flight_event = make_event(
+                title=f"✈️ Flight to {facility}",
+                dt_str=flight_start.isoformat(),
+                description=f"Flight to {facility} for {procedure}",
+                duration_mins=360,
+            )
+            r = service.events().insert(calendarId="primary", body=flight_event).execute()
+            created.append(r["id"])
+            print(f"  ✅ Calendar: flight block at {flight_start.strftime('%I:%M %p')}")
 
         # Cab 2: Airport → Venue (1 hour before required arrival)
         airport_arrival_dt = (
@@ -358,7 +421,10 @@ async def run_agent3() -> dict:
     with open(state_path) as f:
         state = json.load(f)
 
-    surgery = state.get("data", {}).get("surgery_treatment", {})
+    surgery = (
+        state.get("data", {}).get("surgery_treatment")
+        or state.get("surgery_treatment", {})
+    )
     origin_address = profile["personal"]["address"]
     destination_address = surgery.get("address")
     appointment_str = surgery.get("when")
@@ -401,7 +467,12 @@ async def run_agent3() -> dict:
     if mode == "flight":
         print("\n  ✈️  Searching flights via browser-use + Composio...")
         origin_city = profile["personal"]["city"]
-        destination_city = destination_address.split(",")[-2].strip()
+        destination_city = city_for_flight_search(
+            destination_coords.get("formatted", ""),
+            destination_address,
+            hospital,
+        )
+        print(f"  📍 Flight search cities: {origin_city!r} → {destination_city!r}")
         flights = await search_flights(origin_city, destination_city, appointment_str)
 
         if flights and flights.options:
@@ -456,6 +527,7 @@ async def run_agent3() -> dict:
             cab_cost=cab_cost,
             airport_to_venue_cost=airport_to_venue_cost,
             mode=mode,
+            flight_option=flights.options[0] if flights and flights.options else None,
         )
         calendar_created = True
     except Exception as e:

@@ -63,7 +63,7 @@ def merge_documents(pdf_bytes_list: list[bytes], extra_text: str = None) -> str:
 def call_groq(merged_text: str, messages_override: list = None) -> dict:
     messages = messages_override or [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": f"Parse these medical documents:\n\n{merged_text}"}
+        {"role": "user", "content": f"Parse these medical documents:\n\n{merged_text}"},
     ]
     response = client.chat.completions.create(
         model=MODEL,
@@ -129,51 +129,119 @@ def check_critical_fields(data: dict) -> list[str]:
     return missing
 
 
-def save_to_disk(result: dict):
-    """Persist the full analyser output to data/patient_state.json."""
+def save_to_disk(result: dict) -> None:
+    """Persist patient_state.json. Preserves uploaded_files on disk unless result sets it."""
     DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    out = {
+        "status": result["status"],
+        "data": result["data"],
+        "missing_fields": result["missing_fields"],
+    }
+    if "uploaded_files" in result:
+        out["uploaded_files"] = result["uploaded_files"]
+    elif DATA_PATH.exists():
+        try:
+            with open(DATA_PATH) as f:
+                prev = json.load(f)
+            if prev.get("uploaded_files"):
+                out["uploaded_files"] = prev["uploaded_files"]
+        except (json.JSONDecodeError, OSError):
+            pass
     with open(DATA_PATH, "w") as f:
-        json.dump(result, f, indent=2)
+        json.dump(out, f, indent=2)
 
 
-def analyse(pdf_bytes_list: list[bytes], extra_text: str = None) -> dict:
+def analyse(
+    pdf_bytes_list: list[bytes],
+    extra_text: str = None,
+    *,
+    merge_previous: bool = False,
+) -> dict:
     """
-    Main entry point.
-    Takes 1-5 PDF byte payloads + optional typed text.
-    Returns structured result dict and saves to disk.
+    Parse PDFs + optional text. If merge_previous, load prior data from disk and merge with new material.
+    Saves {status, data, missing_fields} and preserves uploaded_files until router sets them.
     """
-    if not pdf_bytes_list and not extra_text:
-        raise ValueError("No input provided. Send at least one PDF or text.")
-
     if len(pdf_bytes_list) > 5:
         raise ValueError("Maximum 5 PDFs allowed.")
 
-    merged = merge_documents(pdf_bytes_list, extra_text)
-    if not merged.strip():
-        raise ValueError("Could not extract any text from the provided documents.")
+    prior_data = None
+    if merge_previous and DATA_PATH.exists():
+        try:
+            with open(DATA_PATH) as f:
+                snap = json.load(f)
+            prior_data = snap.get("data")
+        except (json.JSONDecodeError, OSError):
+            prior_data = None
 
-    # First Groq call
-    data = call_groq(merged)
+    if merge_previous and prior_data is None:
+        merge_previous = False
+
+    new_notes = (extra_text or "").strip()
+    if merge_previous:
+        if not pdf_bytes_list and not new_notes:
+            raise ValueError("Merge requires new PDFs or notes to add to the prior extraction.")
+    else:
+        if not pdf_bytes_list and not new_notes:
+            raise ValueError("No input provided. Send at least one PDF or text.")
+
+    new_merged = merge_documents(pdf_bytes_list, extra_text)
+    if not new_merged.strip():
+        raise ValueError(
+            "Could not extract any text from the provided documents."
+            if not merge_previous
+            else "Merge requires non-empty text from new PDFs or notes."
+        )
+
+    if merge_previous and prior_data is not None:
+        user_block = (
+            "Prior extraction (JSON). Fill gaps using ONLY the new material below. "
+            "Keep existing non-null values unless new documents clearly contradict them.\n\n"
+            + json.dumps(prior_data, indent=2)
+            + "\n\n--- NEW DOCUMENTS AND NOTES ---\n"
+            + new_merged
+        )
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_block},
+        ]
+        data = call_groq(new_merged, messages_override=messages)
+    else:
+        data = call_groq(new_merged)
+
     data = clean_data(data)
     errors = validate(data)
 
-    # One automatic retry if structural validation fails
     if errors:
-        data = call_groq(merged, messages_override=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Parse these medical documents:\n\n{merged}"},
-            {"role": "assistant", "content": json.dumps(data)},
-            {"role": "user", "content": f"Your output had issues: {errors}. Fix and return complete JSON."}
-        ])
+        retry_messages = (
+            [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_block},
+                {"role": "assistant", "content": json.dumps(data)},
+                {
+                    "role": "user",
+                    "content": f"Your output had issues: {errors}. Fix and return complete JSON.",
+                },
+            ]
+            if merge_previous and prior_data is not None
+            else [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": f"Parse these medical documents:\n\n{new_merged}"},
+                {"role": "assistant", "content": json.dumps(data)},
+                {
+                    "role": "user",
+                    "content": f"Your output had issues: {errors}. Fix and return complete JSON.",
+                },
+            ]
+        )
+        data = call_groq(new_merged, messages_override=retry_messages)
         data = clean_data(data)
 
-    # Content check — missing medical fields
     missing = check_critical_fields(data)
 
     result = {
         "status": "incomplete" if missing else "complete",
         "data": data,
-        "missing_fields": missing
+        "missing_fields": missing,
     }
 
     save_to_disk(result)
