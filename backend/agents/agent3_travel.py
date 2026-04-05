@@ -412,7 +412,8 @@ async def run_agent3() -> dict:
     state_path = DATA_DIR / "patient_state.json"
 
     if not profile_path.exists():
-        raise FileNotFoundError("patient_profile.json not found.")
+        print("⚠️  Agent 3 skipped — patient_profile.json not found (patient has not submitted their profile yet).", flush=True)
+        return {}
     if not state_path.exists():
         raise FileNotFoundError("patient_state.json not found.")
 
